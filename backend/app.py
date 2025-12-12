@@ -1,11 +1,43 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import sqlite3
+import re
 
 app = Flask(__name__)
 CORS(app)
 
 DB_PATH = "cinema.db"
+
+#ISOLATION
+#Sql lite has transation modes instead of normal isolation levels
+# still control locking behvarioal, so very similar
+
+# Using default DEFERRED isolation level (locks acquired only when needed)
+# Safe for single-user app. if multi-user writes were expected, could use IMMEDIATE (gets write locks at start of transaction)
+# to get a write lock at the start and protect consistnecy (if that was the priority)
+
+# set isolation_level="IMMEDIATE" in connection
+
+
+#TRANSACTIONS
+# all reads and writes are wihtin a transaction in sqllite
+#they are implictly began when the query writes in a .execute() statement
+#any error that raises an exception in within the transaction leads to implicit rollback
+#otherwise, .commit() commits (ends) the transaction write
+#so, BEGIN, COMMIT/ROLLBACK, all happens behind the scenes
+
+#autocommit is turned off by default in python's sqllite3 library (but not in the sql lite C library itself it seems)
+
+
+#added for extra sanitization
+def sanitize_string(s, max_len=100):
+    if not s:
+        return ""
+    s = s.strip()                  # remove leading/trailing spaces
+    s = re.sub(r"[^\w\s\-.,!?]", "", s)  # remove any special chars except common punctuation
+    return s[:max_len]             # truncate if too long
+
+
 
 # Utility: run SELECT query
 def query_db(query, args=(), one=False):
@@ -65,7 +97,8 @@ def delete_screening(id):
 def screening_stats():
     from_date = request.args.get("from")
     to_date = request.args.get("to")
-    movie_name = request.args.get("movieName")
+    #movie_name = request.args.get("movieName")
+    movie_name = sanitize_string(request.args.get("movieName")) # new line sanitized
     min_seats = request.args.get("minSeats")
 
     # Base query for filtered screenings
